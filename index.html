@@ -472,6 +472,64 @@
 
     .result .primary-button { width: 100%; }
 
+    .result-review {
+      margin: 0 auto 24px;
+      padding: 18px 16px 12px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: color-mix(in srgb, var(--surface-raised) 72%, transparent);
+      text-align: left;
+    }
+
+    .result-review h2 {
+      margin-bottom: 12px;
+      font-size: clamp(18px, 4vw, 22px);
+      letter-spacing: -.03em;
+    }
+
+    .result-review.empty {
+      padding: 16px;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    .result-review-list {
+      display: grid;
+      gap: 12px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .missed-question {
+      padding: 12px 12px 10px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, .015);
+    }
+
+    .missed-question-prompt {
+      margin-bottom: 8px;
+      font-weight: 700;
+      line-height: 1.4;
+    }
+
+    .missed-question-detail {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .missed-question-detail span {
+      color: var(--text);
+      font-weight: 700;
+    }
+
+    .missed-question-correct {
+      margin-top: 4px;
+      color: var(--success);
+    }
+
     .footer {
       margin: 18px 0 0;
       color: var(--muted);
@@ -630,6 +688,7 @@
     const progress = document.querySelector('[role="progressbar"]');
     const progressFill = document.getElementById("progress-fill");
     const nextButton = document.getElementById("next-button");
+    const selectedAnswers = Array(questions.length).fill(null);
     let currentQuestion = 0;
     let score = 0;
     let answered = false;
@@ -656,6 +715,20 @@
       }
 
       return bestScore;
+    }
+
+    function getMissedQuestions() {
+      return questions
+        .map((question, index) => {
+          const selected = selectedAnswers[index];
+          if (selected === null || selected === question.correct) return null;
+          return {
+            prompt: question.prompt,
+            selected: question.answers[selected],
+            correct: question.answers[question.correct]
+          };
+        })
+        .filter(Boolean);
     }
 
     function renderQuestion() {
@@ -685,6 +758,7 @@
     function chooseAnswer(selected) {
       if (answered) return;
       answered = true;
+      selectedAnswers[currentQuestion] = selected;
       const question = questions[currentQuestion];
       const buttons = [...answersEl.querySelectorAll("button")];
       buttons.forEach(button => { button.disabled = true; });
@@ -724,6 +798,22 @@
             ? { emoji: "🪐", title: "Nice exploring!", copy: "Every great astronaut starts with a few questions." }
             : { emoji: "🌱", title: "Mission complete!", copy: "The universe is huge — now you have a few new things to explore." };
 
+      const missedQuestions = getMissedQuestions();
+      const reviewMarkup = missedQuestions.length
+        ? `<div class="result-review" aria-labelledby="missed-answers-title">
+            <h2 id="missed-answers-title">Missed answers</h2>
+            <ul class="result-review-list">
+              ${missedQuestions.map(({ prompt, selected, correct }, index) => `
+                <li class="missed-question">
+                  <p class="missed-question-prompt">${index + 1}. ${prompt}</p>
+                  <p class="missed-question-detail"><span>Your answer:</span> ${selected}</p>
+                  <p class="missed-question-detail missed-question-correct"><span>Correct answer:</span> ${correct}</p>
+                </li>
+              `).join("")}
+            </ul>
+          </div>`
+        : '<div class="result-review empty" aria-live="polite"><p>No missed answers — every question was a perfect hit.</p></div>';
+
       resultScreen.innerHTML = `
         <div class="result-emoji" aria-hidden="true">${result.emoji}</div>
         <p class="eyebrow">Mission debrief</p>
@@ -740,6 +830,7 @@
           </div>
         </div>
         <div class="final-score">${score}<small>out of ${questions.length} correct</small></div>
+        ${reviewMarkup}
         <button class="primary-button" id="restart-button" type="button">Play again <span aria-hidden="true">↻</span></button>
       `;
       resultScreen.hidden = false;
@@ -750,6 +841,7 @@
     function restart() {
       currentQuestion = 0;
       score = 0;
+      selectedAnswers.fill(null);
       resultScreen.hidden = true;
       quizScreen.hidden = false;
       renderQuestion();
