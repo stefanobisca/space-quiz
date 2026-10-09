@@ -422,6 +422,10 @@
       max-width: 360px;
     }
 
+    .result-scoreboard.single-score {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
     .result-scorebox {
       display: flex;
       flex-direction: column;
@@ -726,28 +730,23 @@
       return roundQuestions;
     }
 
-    function readBestScore() {
+    function saveBestScore(currentScore) {
       try {
         const savedBest = window.localStorage.getItem(STORAGE_KEY);
-        if (savedBest === null) return null;
-        const value = Number(savedBest);
-        return Number.isFinite(value) ? value : null;
+        const parsedBest = savedBest === null ? null : Number(savedBest);
+        const previousBest = Number.isInteger(parsedBest)
+          && parsedBest >= 0
+          && parsedBest <= questions.length
+          ? parsedBest
+          : null;
+        const bestScore = previousBest === null
+          ? currentScore
+          : Math.max(previousBest, currentScore);
+        window.localStorage.setItem(STORAGE_KEY, String(bestScore));
+        return bestScore;
       } catch (error) {
         return null;
       }
-    }
-
-    function saveBestScore(currentScore) {
-      const previousBest = readBestScore();
-      const bestScore = previousBest === null ? currentScore : Math.max(previousBest, currentScore);
-
-      try {
-        window.localStorage.setItem(STORAGE_KEY, String(bestScore));
-      } catch (error) {
-        return bestScore;
-      }
-
-      return bestScore;
     }
 
     function getMissedQuestions() {
@@ -852,15 +851,16 @@
         <p class="eyebrow">Mission debrief</p>
         <h1 tabindex="-1">${result.title}</h1>
         <p class="result-copy">${result.copy}</p>
-        <div class="result-scoreboard" aria-live="polite">
+        <div class="result-scoreboard${personalBest === null ? " single-score" : ""}" aria-live="polite">
           <div class="result-scorebox">
             <span>This run</span>
             <strong class="accent">${score}</strong>
           </div>
+          ${personalBest === null ? "" : `
           <div class="result-scorebox">
             <span>Personal best</span>
             <strong>${personalBest}</strong>
-          </div>
+          </div>`}
         </div>
         <div class="final-score">${score}<small>out of ${roundQuestions.length} correct</small></div>
         ${reviewMarkup}
