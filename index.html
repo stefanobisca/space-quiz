@@ -639,6 +639,25 @@
       }
     ];
 
+    function shuffleQuestions(questionBank, previousOrder = []) {
+      let shuffled = [...questionBank];
+
+      do {
+        shuffled = [...questionBank];
+
+        for (let index = shuffled.length - 1; index > 0; index -= 1) {
+          const swapIndex = Math.floor(Math.random() * (index + 1));
+          [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
+        }
+      } while (
+        previousOrder.length > 0
+        && shuffled.length === previousOrder.length
+        && shuffled.every((question, index) => question === previousOrder[index])
+      );
+
+      return shuffled;
+    }
+
     const quizScreen = document.getElementById("quiz-screen");
     const resultScreen = document.getElementById("result-screen");
     const questionCount = document.getElementById("question-count");
@@ -649,13 +668,28 @@
     const progress = document.querySelector('[role="progressbar"]');
     const progressFill = document.getElementById("progress-fill");
     const nextButton = document.getElementById("next-button");
-    const selectedAnswers = Array(questions.length).fill(null);
     let currentQuestion = 0;
     let score = 0;
     let answered = false;
+    let selectedAnswers = [];
+    let roundQuestions = [];
+
+    function startNewRound() {
+      const previousRound = roundQuestions;
+      currentQuestion = 0;
+      score = 0;
+      answered = false;
+      selectedAnswers = Array(questions.length).fill(null);
+      roundQuestions = shuffleQuestions(questions, previousRound);
+      resultScreen.hidden = true;
+      quizScreen.hidden = false;
+      renderQuestion();
+      questionTitle.focus();
+      return roundQuestions;
+    }
 
     function getMissedQuestions() {
-      return questions
+      return roundQuestions
         .map((question, index) => {
           const selected = selectedAnswers[index];
           if (selected === null || selected === question.correct) return null;
@@ -669,13 +703,13 @@
     }
 
     function renderQuestion() {
-      const question = questions[currentQuestion];
+      const question = roundQuestions[currentQuestion];
       answered = false;
-      questionCount.textContent = `Question ${currentQuestion + 1} of ${questions.length}`;
+      questionCount.textContent = `Question ${currentQuestion + 1} of ${roundQuestions.length}`;
       questionTitle.textContent = question.prompt;
       scoreEl.textContent = score;
       progress.setAttribute("aria-valuenow", String(currentQuestion));
-      progressFill.style.width = `${(currentQuestion / questions.length) * 100}%`;
+      progressFill.style.width = `${(currentQuestion / roundQuestions.length) * 100}%`;
       feedback.textContent = "";
       feedback.className = "feedback";
       nextButton.hidden = true;
@@ -696,7 +730,7 @@
       if (answered) return;
       answered = true;
       selectedAnswers[currentQuestion] = selected;
-      const question = questions[currentQuestion];
+      const question = roundQuestions[currentQuestion];
       const buttons = [...answersEl.querySelectorAll("button")];
       buttons.forEach(button => { button.disabled = true; });
 
@@ -715,8 +749,8 @@
       }
 
       progress.setAttribute("aria-valuenow", String(currentQuestion + 1));
-      progressFill.style.width = `${((currentQuestion + 1) / questions.length) * 100}%`;
-      nextButton.innerHTML = currentQuestion === questions.length - 1
+      progressFill.style.width = `${((currentQuestion + 1) / roundQuestions.length) * 100}%`;
+      nextButton.innerHTML = currentQuestion === roundQuestions.length - 1
         ? 'See my results <span aria-hidden="true">✦</span>'
         : 'Next question <span aria-hidden="true">→</span>';
       nextButton.hidden = false;
@@ -725,7 +759,7 @@
 
     function showResults() {
       quizScreen.hidden = true;
-      const percent = score / questions.length;
+      const percent = score / roundQuestions.length;
       const result = percent === 1
         ? { emoji: "🏆", title: "Out of this world!", copy: "A perfect mission. The cosmos has a new expert." }
         : percent >= .7
@@ -755,28 +789,18 @@
         <p class="eyebrow">Mission debrief</p>
         <h1 tabindex="-1">${result.title}</h1>
         <p class="result-copy">${result.copy}</p>
-        <div class="final-score">${score}<small>out of ${questions.length} correct</small></div>
+        <div class="final-score">${score}<small>out of ${roundQuestions.length} correct</small></div>
         ${reviewMarkup}
         <button class="primary-button" id="restart-button" type="button">Play again <span aria-hidden="true">↻</span></button>
       `;
       resultScreen.hidden = false;
-      resultScreen.querySelector("#restart-button").addEventListener("click", restart);
+      resultScreen.querySelector("#restart-button").addEventListener("click", startNewRound);
       resultScreen.querySelector("h1").focus();
-    }
-
-    function restart() {
-      currentQuestion = 0;
-      score = 0;
-      selectedAnswers.fill(null);
-      resultScreen.hidden = true;
-      quizScreen.hidden = false;
-      renderQuestion();
-      questionTitle.focus();
     }
 
     nextButton.addEventListener("click", () => {
       if (!answered) return;
-      if (currentQuestion === questions.length - 1) {
+      if (currentQuestion === roundQuestions.length - 1) {
         showResults();
       } else {
         currentQuestion += 1;
@@ -785,7 +809,7 @@
       }
     });
 
-    renderQuestion();
+    startNewRound();
   </script>
 </body>
 </html>
