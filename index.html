@@ -414,6 +414,44 @@
       font-size: 14px;
     }
 
+    .result-scoreboard {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin: 0 auto 24px;
+      max-width: 360px;
+    }
+
+    .result-scorebox {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      padding: 12px 10px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--surface-raised);
+      text-align: center;
+    }
+
+    .result-scorebox span {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .result-scorebox strong {
+      color: var(--text);
+      font-size: clamp(22px, 6vw, 29px);
+      font-weight: 800;
+      letter-spacing: -.05em;
+    }
+
+    .result-scorebox strong.accent {
+      color: var(--accent-strong);
+    }
+
     .final-score {
       display: inline-flex;
       align-items: baseline;
@@ -639,6 +677,7 @@
       }
     ];
 
+    const STORAGE_KEY = "orbit-personal-best-score";
     const quizScreen = document.getElementById("quiz-screen");
     const resultScreen = document.getElementById("result-screen");
     const questionCount = document.getElementById("question-count");
@@ -653,6 +692,30 @@
     let currentQuestion = 0;
     let score = 0;
     let answered = false;
+
+    function readBestScore() {
+      try {
+        const savedBest = window.localStorage.getItem(STORAGE_KEY);
+        if (savedBest === null) return null;
+        const value = Number(savedBest);
+        return Number.isFinite(value) ? value : null;
+      } catch (error) {
+        return null;
+      }
+    }
+
+    function saveBestScore(currentScore) {
+      const previousBest = readBestScore();
+      const bestScore = previousBest === null ? currentScore : Math.max(previousBest, currentScore);
+
+      try {
+        window.localStorage.setItem(STORAGE_KEY, String(bestScore));
+      } catch (error) {
+        return bestScore;
+      }
+
+      return bestScore;
+    }
 
     function getMissedQuestions() {
       return questions
@@ -725,6 +788,7 @@
 
     function showResults() {
       quizScreen.hidden = true;
+      const personalBest = saveBestScore(score);
       const percent = score / questions.length;
       const result = percent === 1
         ? { emoji: "🏆", title: "Out of this world!", copy: "A perfect mission. The cosmos has a new expert." }
@@ -755,6 +819,16 @@
         <p class="eyebrow">Mission debrief</p>
         <h1 tabindex="-1">${result.title}</h1>
         <p class="result-copy">${result.copy}</p>
+        <div class="result-scoreboard" aria-live="polite">
+          <div class="result-scorebox">
+            <span>This run</span>
+            <strong class="accent">${score}</strong>
+          </div>
+          <div class="result-scorebox">
+            <span>Personal best</span>
+            <strong>${personalBest}</strong>
+          </div>
+        </div>
         <div class="final-score">${score}<small>out of ${questions.length} correct</small></div>
         ${reviewMarkup}
         <button class="primary-button" id="restart-button" type="button">Play again <span aria-hidden="true">↻</span></button>
